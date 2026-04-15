@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     fic_access_token: str
     fic_company_id: int
-    pdf_template_path: str = "pdf_templates/dichiarazione.pdf"
+    pdf_template_path: str = "pdf_templates/dichiarazione_conformita.pdf"
 
     @property
     def pdf_template_abs_path(self) -> Path:
