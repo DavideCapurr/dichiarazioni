@@ -33,7 +33,10 @@ app.include_router(declarations.router)
 
 @app.get("/")
 def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(
+        request=request, 
+        name="index.html"
+    )
 
 
 # --- Exception handlers ---
@@ -49,22 +52,4 @@ def handle_auth_error(request: Request, exc: FattureInCloudAuthError):
 @app.exception_handler(FattureInCloudNotFoundError)
 def handle_not_found_error(request: Request, exc: FattureInCloudNotFoundError):
     return JSONResponse(
-        status_code=404,
-        content={"error": str(exc)},
-    )
-
-
-@app.exception_handler(FattureInCloudError)
-def handle_fic_error(request: Request, exc: FattureInCloudError):
-    return JSONResponse(
-        status_code=502,
-        content={"error": str(exc)},
-    )
-
-
-@app.exception_handler(PDFTemplateError)
-def handle_pdf_error(request: Request, exc: PDFTemplateError):
-    return JSONResponse(
-        status_code=500,
-        content={"error": str(exc)},
-    )
+        status_code
