@@ -1,6 +1,6 @@
 from datetime import date
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ClientInfo(BaseModel):
@@ -20,11 +20,26 @@ class ClientSearchResponse(BaseModel):
     clients: list[ClientInfo]
 
 
+class AllegatiFlags(BaseModel):
+    """Flag per le checkbox degli allegati obbligatori."""
+    allegato_progetto: bool = False
+    allegato_relazione: bool = False
+    allegato_schema: bool = False
+    allegato_precedenti: bool = False
+    allegato_certificato: bool = False
+    allegato_conformita: bool = False
+
+
 class DeclarationRequest(BaseModel):
     client_id: int
-    declaration_date: date | None = None
-    declaration_number: str | None = None
-    notes: str | None = None
+    declaration_date: date | None = Field(None, description="Data della dichiarazione")
+    tipo_impianto: str | None = Field(None, description="Es. nuovo impianto idraulico")
+    descrizione_impianto: str | None = Field(None, description="Descrizione dettagliata")
+    comune_installazione: str | None = Field(None, description="Comune di installazione (override indirizzo cliente)")
+    via_installazione: str | None = Field(None, description="Via di installazione (override indirizzo cliente)")
+    proprietario: str | None = Field(None, description="Proprietario dell'immobile")
+    uso_edificio: str | None = Field(None, description="Es. civile, commerciale, industriale")
+    allegati: AllegatiFlags = Field(default_factory=AllegatiFlags)
 
 
 class ErrorResponse(BaseModel):

@@ -12,10 +12,12 @@
     const clientIdInput = document.getElementById('clientId');
     const clientSummary = document.getElementById('clientSummary');
     const declarationDate = document.getElementById('declarationDate');
+    const comuneInstallazione = document.getElementById('comuneInstallazione');
+    const viaInstallazione = document.getElementById('viaInstallazione');
 
     let searchTimer = null;
 
-    // Set default date to today
+    // Default today's date
     declarationDate.value = new Date().toISOString().split('T')[0];
 
     function showNotification(message, type) {
@@ -63,7 +65,7 @@
                 <td>${escapeHtml(c.vat_number || '-')}</td>
                 <td>${escapeHtml(c.tax_code || '-')}</td>
                 <td>${escapeHtml(c.address_city || '-')}</td>
-                <td><button class="btn-select" data-id="${c.id}">Seleziona</button></td>
+                <td><button class="btn-select">Seleziona</button></td>
             `;
             tr.querySelector('.btn-select').addEventListener('click', () => openModal(c));
             resultsBody.appendChild(tr);
@@ -85,13 +87,14 @@
             CF: ${escapeHtml(client.tax_code || '-')}<br>
             ${escapeHtml(client.address_street || '')} ${escapeHtml(client.address_postal_code || '')} ${escapeHtml(client.address_city || '')} ${escapeHtml(client.address_province ? '(' + client.address_province + ')' : '')}
         `;
+        // Pre-fill installation location with client address (user can override)
+        comuneInstallazione.value = client.address_city || '';
+        viaInstallazione.value = client.address_street || '';
         modal.classList.remove('hidden');
     }
 
     function closeModal() {
         modal.classList.add('hidden');
-        generateForm.reset();
-        declarationDate.value = new Date().toISOString().split('T')[0];
     }
 
     async function generateDeclaration(event) {
@@ -102,12 +105,25 @@
 
         const payload = {
             client_id: parseInt(clientIdInput.value, 10),
+            allegati: {},
         };
-        if (declarationDate.value) payload.declaration_date = declarationDate.value;
-        const num = document.getElementById('declarationNumber').value;
-        if (num) payload.declaration_number = num;
-        const notes = document.getElementById('notes').value;
-        if (notes) payload.notes = notes;
+
+        // Text fields
+        const textFields = ['declaration_date', 'tipo_impianto', 'descrizione_impianto',
+                            'comune_installazione', 'via_installazione', 'proprietario',
+                            'uso_edificio'];
+        for (const f of textFields) {
+            const el = generateForm.querySelector(`[name="${f}"]`);
+            if (el && el.value) payload[f] = el.value;
+        }
+
+        // Checkboxes allegati
+        const cbNames = ['allegato_progetto', 'allegato_relazione', 'allegato_schema',
+                         'allegato_precedenti', 'allegato_certificato', 'allegato_conformita'];
+        for (const name of cbNames) {
+            const el = generateForm.querySelector(`[name="${name}"]`);
+            payload.allegati[name] = el ? el.checked : false;
+        }
 
         try {
             const response = await fetch('/api/declarations/generate', {

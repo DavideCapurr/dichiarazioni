@@ -1,4 +1,3 @@
-import io
 import os
 from pathlib import Path
 
@@ -10,61 +9,39 @@ os.environ.setdefault("FIC_COMPANY_ID", "12345")
 
 
 def _build_sample_pdf_with_fields(path: Path) -> None:
-    """Build a minimal PDF with AcroForm fields using pypdf."""
-    from pypdf import PdfWriter
-    from pypdf.generic import (
-        ArrayObject,
-        BooleanObject,
-        DictionaryObject,
-        NameObject,
-        RectangleObject,
-        TextStringObject,
-    )
+    """Build a minimal PDF with the expected AcroForm fields for testing."""
+    from reportlab.pdfgen import canvas as rl_canvas
 
-    writer = PdfWriter()
-    page = writer.add_blank_page(width=595, height=842)
-
-    fields_to_create = [
-        "ragione_sociale",
-        "partita_iva",
-        "codice_fiscale",
-        "indirizzo",
-        "cap",
-        "citta",
-        "provincia",
-        "email",
-        "telefono",
-        "data_dichiarazione",
-        "numero_dichiarazione",
-        "note",
+    c = rl_canvas.Canvas(str(path))
+    text_fields = [
+        "tipo_impianto",
+        "descrizione_impianto",
+        "commissionato_da",
+        "comune_installazione",
+        "via_installazione",
+        "proprietario",
+        "uso_edificio",
+        "data",
     ]
-
-    annots = ArrayObject()
-    y_top = 800
-    for idx, field_name in enumerate(fields_to_create):
-        y = y_top - (idx * 40)
-        field = DictionaryObject({
-            NameObject("/T"): TextStringObject(field_name),
-            NameObject("/FT"): NameObject("/Tx"),
-            NameObject("/V"): TextStringObject(""),
-            NameObject("/Rect"): RectangleObject([100, y, 400, y + 20]),
-            NameObject("/Subtype"): NameObject("/Widget"),
-            NameObject("/Type"): NameObject("/Annot"),
-            NameObject("/P"): page.indirect_reference,
-        })
-        field_ref = writer._add_object(field)
-        annots.append(field_ref)
-
-    page[NameObject("/Annots")] = annots
-
-    acroform = DictionaryObject({
-        NameObject("/Fields"): annots,
-        NameObject("/NeedAppearances"): BooleanObject(True),
-    })
-    writer._root_object[NameObject("/AcroForm")] = acroform
-
-    with open(path, "wb") as f:
-        writer.write(f)
+    checkboxes = [
+        "allegato_progetto",
+        "allegato_relazione",
+        "allegato_schema",
+        "allegato_precedenti",
+        "allegato_certificato",
+        "allegato_conformita",
+    ]
+    y = 800
+    for name in text_fields:
+        c.acroForm.textfield(
+            name=name, x=100, y=y, width=200, height=14, borderStyle="underlined"
+        )
+        y -= 20
+    for name in checkboxes:
+        c.acroForm.checkbox(name=name, x=100, y=y, size=10, checked=False)
+        y -= 20
+    c.showPage()
+    c.save()
 
 
 @pytest.fixture

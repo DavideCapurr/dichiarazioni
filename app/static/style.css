@@ -265,6 +265,51 @@ tbody tr:hover {
     cursor: not-allowed;
 }
 
+/* Form row (two-column) */
+.form-row {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+/* Allegati group */
+.allegati-group {
+    margin: 1rem 0 1.25rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #f7fafc;
+}
+
+.allegati-group legend {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #4a5568;
+    padding: 0 0.5rem;
+}
+
+.allegati-group .checkbox {
+    display: block;
+    font-size: 0.85rem;
+    margin: 0.3rem 0;
+    cursor: pointer;
+    color: #2d3748;
+}
+
+.allegati-group .checkbox input {
+    margin-right: 0.4rem;
+    vertical-align: middle;
+}
+
+/* Modal scrolling for long forms */
+.modal-content {
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
     .search-box {

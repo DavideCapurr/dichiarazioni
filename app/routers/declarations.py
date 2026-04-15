@@ -16,20 +16,26 @@ def generate(request: DeclarationRequest):
     """Generate a compiled Dichiarazione di Conformità PDF for the given client."""
     client = get_client(request.client_id)
 
-    extra_fields: dict[str, str] = {}
-    if request.declaration_date:
-        extra_fields["declaration_date"] = request.declaration_date.strftime("%d/%m/%Y")
-    else:
-        extra_fields["declaration_date"] = date.today().strftime("%d/%m/%Y")
-    if request.declaration_number:
-        extra_fields["declaration_number"] = request.declaration_number
-    if request.notes:
-        extra_fields["notes"] = request.notes
+    # Build extra_fields from the request (only set non-empty values so the
+    # PDF generator falls back to client data for address fields).
+    decl_date = request.declaration_date or date.today()
+
+    extra_fields: dict[str, str] = {
+        "data": decl_date.strftime("%d/%m/%Y"),
+    }
+    for field in ("tipo_impianto", "descrizione_impianto", "proprietario",
+                  "uso_edificio", "comune_installazione", "via_installazione"):
+        val = getattr(request, field)
+        if val:
+            extra_fields[field] = val
+
+    allegati_dict = request.allegati.model_dump()
 
     pdf_bytes = generate_declaration(
         client=client,
         template_path=settings.pdf_template_abs_path,
         extra_fields=extra_fields,
+        allegati=allegati_dict,
     )
 
     safe_name = client.name.replace(" ", "_").replace("/", "_")

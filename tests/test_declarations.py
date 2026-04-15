@@ -18,7 +18,9 @@ def test_generate_declaration_returns_pdf(sample_template_pdf: Path, sample_clie
             json={
                 "client_id": sample_client.id,
                 "declaration_date": "2026-04-15",
-                "declaration_number": "001/2026",
+                "tipo_impianto": "nuovo impianto idraulico",
+                "uso_edificio": "civile",
+                "allegati": {"allegato_certificato": True},
             },
         )
 
@@ -41,3 +43,15 @@ def test_generate_declaration_not_found(sample_template_pdf: Path):
             json={"client_id": 99999},
         )
     assert response.status_code == 404
+
+
+def test_generate_declaration_with_defaults(sample_template_pdf: Path, sample_client: ClientInfo):
+    """Minimal request should work — date defaults to today, allegati default to false."""
+    with patch("app.routers.declarations.get_client", return_value=sample_client), \
+         patch("app.routers.declarations.settings") as mock_settings:
+        mock_settings.pdf_template_abs_path = sample_template_pdf
+        response = client.post(
+            "/api/declarations/generate",
+            json={"client_id": sample_client.id},
+        )
+    assert response.status_code == 200
