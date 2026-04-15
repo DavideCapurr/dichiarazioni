@@ -11,10 +11,10 @@ Web app per automatizzare la creazione delle Dichiarazioni di Conformità per i 
 
 ## Installazione
 
-1. Clona il repository e installa le dipendenze:
+1. Clona il repository e installa le dipendenze con Poetry:
 
    ```bash
-   pip install -r requirements.txt
+   poetry install
    ```
 
 2. Copia `.env.example` in `.env` e configura le credenziali:
@@ -65,17 +65,30 @@ Mapping di default:
 ## Avvio
 
 ```bash
-uvicorn app.main:app --reload
+poetry run uvicorn app.main:app --reload
 ```
 
 Apri `http://localhost:8000` nel browser.
 
 API docs: `http://localhost:8000/docs`
 
+Oppure entra nella shell di Poetry e lancia senza prefisso:
+
+```bash
+poetry shell
+uvicorn app.main:app --reload
+```
+
 ## Test
 
 ```bash
-pytest tests/ -v
+poetry run pytest tests/ -v
+```
+
+## Script utility
+
+```bash
+poetry run python scripts/inspect_pdf_fields.py pdf_templates/dichiarazione_conformita.pdf
 ```
 
 ## Struttura del progetto
