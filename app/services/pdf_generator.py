@@ -58,11 +58,7 @@ def get_template_fields(template_path: Path) -> list[str]:
 
 
 def _fill_checkboxes(writer: PdfWriter, checkbox_values: dict[str, bool]) -> None:
-    """Directly update /V and /AS on every checkbox widget annotation.
-
-    Some PDF viewers only look at /AS (Appearance State) to decide whether
-    to render the tick; setting both /V and /AS ensures it works everywhere.
-    """
+    """Aggiorna le checkbox trovando dinamicamente lo stato 'acceso' corretto."""
     for page in writer.pages:
         annots = page.get("/Annots")
         if annots is None:
@@ -72,10 +68,24 @@ def _fill_checkboxes(writer: PdfWriter, checkbox_values: dict[str, bool]) -> Non
             field_name = annot.get("/T")
             if field_name is None:
                 continue
+            
             name = str(field_name)
             if name not in checkbox_values:
                 continue
-            state = NameObject("/Yes") if checkbox_values[name] else NameObject("/Off")
+            
+            # Scopriamo come si chiama lo stato "Acceso" (spesso non è "/Yes")
+            on_state = NameObject("/Yes") # Valore di default
+            ap = annot.get("/AP")
+            if ap and "/N" in ap:
+                # Leggiamo le opzioni disponibili nascoste dentro la checkbox
+                n_dict = ap["/N"].get_object()
+                for key in n_dict.keys():
+                    if key != "/Off":
+                        on_state = NameObject(key)
+                        break
+            
+            # Applichiamo lo stato (Acceso o Spento)
+            state = on_state if checkbox_values[name] else NameObject("/Off")
             annot.update({
                 NameObject("/V"): state,
                 NameObject("/AS"): state,
