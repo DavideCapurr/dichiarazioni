@@ -27,7 +27,6 @@ EXTRA_FIELD_MAP: dict[str, str] = {
 }
 
 # Mappatura Checkbox diventati campi di testo (Nome nell'App -> Nome nel PDF)
-# Assicurati che tick1, tick2, ecc. corrispondano all'ordine corretto nel tuo PDF
 CHECKBOX_MAP: dict[str, str] = {
     "dichiara_norma": "tick1",
     "dichiara_componenti": "tick2",
@@ -68,6 +67,9 @@ def generate_declaration(
     writer = PdfWriter()
     writer.append(reader)
 
+    # Recuperiamo i campi esistenti nel PDF per il debug
+    pdf_fields = reader.get_fields() or {}
+
     # ── Text fields ────────────────────────────────────────────────────────
     text_values: dict[str, str] = {}
 
@@ -89,16 +91,23 @@ def generate_declaration(
 
     # ── "Checkboxes" (ora trattati come campi di testo) ────────────────────
     if allegati:
+        logger.info(f"DEBUG PDF: Ricevuti allegati dal frontend: {allegati}")
         for app_name, pdf_name in CHECKBOX_MAP.items():
+            # Controlliamo se il campo testo esiste davvero nel template PDF
+            if pdf_name not in pdf_fields:
+                logger.warning(f"DEBUG PDF: Il campo '{pdf_name}' NON ESISTE nel PDF! Controlla come lo hai chiamato.")
+            
             # Se l'utente ha spuntato la voce nell'app, scriviamo "X", altrimenti vuoto
             if allegati.get(app_name, False):
                 text_values[pdf_name] = "X"
+                logger.info(f"DEBUG PDF: Scrivo 'X' nel campo '{pdf_name}' (associato a '{app_name}')")
             else:
                 text_values[pdf_name] = ""
 
     # Compila in un colpo solo tutti i testi (inclusi i tick convertiti in X)
     for page in writer.pages:
-        writer.update_page_form_field_values(page, text_values, auto_regenerate=False)
+        # Impostato auto_regenerate=True per forzare la visualizzazione delle X nei visualizzatori PDF
+        writer.update_page_form_field_values(page, text_values, auto_regenerate=True)
 
     buf = io.BytesIO()
     writer.write(buf)
