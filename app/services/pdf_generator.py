@@ -3,7 +3,6 @@ import logging
 from pathlib import Path
 
 from pypdf import PdfReader, PdfWriter
-from pypdf.generic import NameObject
 
 from app.models.schemas import ClientInfo
 
@@ -27,20 +26,18 @@ EXTRA_FIELD_MAP: dict[str, str] = {
     "in": "via_installazione",
 }
 
-# Mappatura Checkbox (Nome nell'App -> Nome nel PDF)
+# Mappatura Checkbox diventati campi di testo (Nome nell'App -> Nome nel PDF)
+# Assicurati che tick1, tick2, ecc. corrispondano all'ordine corretto nel tuo PDF
 CHECKBOX_MAP: dict[str, str] = {
-    # 3 DICHIARA (Non obbligatori - l'app li imposta a False di default)
-    "dichiara_norma": "1",
-    "dichiara_componenti": "2",
-    "dichiara_controllo": "3",
-    
-    # 6 ALLEGATI (Obbligatori - l'app li imposta a True di default)
-    "allegato_progetto": "4",
-    "allegato_relazione": "5",
-    "allegato_schema": "6",
-    "allegato_precedenti": "checkbox_15ltlf",
-    "allegato_certificato": "checkbox_17mewb",
-    "allegato_conformita": "9",
+    "dichiara_norma": "tick1",
+    "dichiara_componenti": "tick2",
+    "dichiara_controllo": "tick3",
+    "allegato_progetto": "tick4",
+    "allegato_relazione": "tick5",
+    "allegato_schema": "tick6",
+    "allegato_precedenti": "tick7",
+    "allegato_certificato": "tick8",
+    "allegato_conformita": "tick9",
 }
 
 
@@ -55,41 +52,6 @@ def get_template_fields(template_path: Path) -> list[str]:
     reader = PdfReader(str(template_path))
     fields = reader.get_fields()
     return list(fields.keys()) if fields else []
-
-
-def _fill_checkboxes(writer: PdfWriter, checkbox_values: dict[str, bool]) -> None:
-    """Aggiorna le checkbox trovando dinamicamente lo stato 'acceso' corretto."""
-    for page in writer.pages:
-        annots = page.get("/Annots")
-        if annots is None:
-            continue
-        for ref in annots:
-            annot = ref.get_object()
-            field_name = annot.get("/T")
-            if field_name is None:
-                continue
-            
-            name = str(field_name)
-            if name not in checkbox_values:
-                continue
-            
-            # Scopriamo come si chiama lo stato "Acceso" (spesso non è "/Yes")
-            on_state = NameObject("/Yes") # Valore di default
-            ap = annot.get("/AP")
-            if ap and "/N" in ap:
-                # Leggiamo le opzioni disponibili nascoste dentro la checkbox
-                n_dict = ap["/N"].get_object()
-                for key in n_dict.keys():
-                    if key != "/Off":
-                        on_state = NameObject(key)
-                        break
-            
-            # Applichiamo lo stato (Acceso o Spento)
-            state = on_state if checkbox_values[name] else NameObject("/Off")
-            annot.update({
-                NameObject("/V"): state,
-                NameObject("/AS"): state,
-            })
 
 
 def generate_declaration(
@@ -125,19 +87,18 @@ def generate_declaration(
             if val:
                 text_values[pdf_field] = str(val)
 
+    # ── "Checkboxes" (ora trattati come campi di testo) ────────────────────
+    if allegati:
+        for app_name, pdf_name in CHECKBOX_MAP.items():
+            # Se l'utente ha spuntato la voce nell'app, scriviamo "X", altrimenti vuoto
+            if allegati.get(app_name, False):
+                text_values[pdf_name] = "X"
+            else:
+                text_values[pdf_name] = ""
+
+    # Compila in un colpo solo tutti i testi (inclusi i tick convertiti in X)
     for page in writer.pages:
         writer.update_page_form_field_values(page, text_values, auto_regenerate=False)
-
-    # ── Checkboxes ─────────────────────────────────────────────────────────
-# ── Checkboxes ─────────────────────────────────────────────────────────
-    if allegati:
-        cb_values = {}
-        for app_name, pdf_name in CHECKBOX_MAP.items():
-            # Prendiamo il valore (True/False) inviato dall'interfaccia 
-            # e lo assegniamo al nome reale della casella nel PDF
-            cb_values[pdf_name] = bool(allegati.get(app_name, False))
-            
-        _fill_checkboxes(writer, cb_values)
 
     buf = io.BytesIO()
     writer.write(buf)
