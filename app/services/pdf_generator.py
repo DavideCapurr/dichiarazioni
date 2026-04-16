@@ -11,34 +11,37 @@ logger = logging.getLogger(__name__)
 
 # Mappatura campi testo PDF → attributi ClientInfo.
 CLIENT_FIELD_MAP: dict[str, str] = {
-    "commissionato_da": "name",
-    "comune_installazione": "address_city",
-    "via_installazione": "address_street",
+    "commissionato da": "name",
+    "comuneDI": "address_city",
+    "in": "address_street",
 }
 
 # Campi testo aggiuntivi passati come extra_fields.
 EXTRA_FIELD_MAP: dict[str, str] = {
-    "tipo_impianto": "tipo_impianto",
-    "descrizione_impianto": "descrizione_impianto",
-    "proprietario": "proprietario",
-    "uso_edificio": "uso_edificio",
+    "esecutrice di": "tipo_impianto",
+    "inteso come": "descrizione_impianto",
+    "diProprietaDi": "proprietario",
+    "adUso": "uso_edificio",
     "data": "data",
-    "comune_installazione": "comune_installazione",
-    "via_installazione": "via_installazione",
+    "comuneDI": "comune_installazione",
+    "in": "via_installazione",
 }
 
-# Tutti i campi checkbox nel PDF (3 DICHIARA + 6 ALLEGATI).
-ALL_CHECKBOXES: list[str] = [
-    "dichiara_norma",
-    "dichiara_componenti",
-    "dichiara_controllo",
-    "allegato_progetto",
-    "allegato_relazione",
-    "allegato_schema",
-    "allegato_precedenti",
-    "allegato_certificato",
-    "allegato_conformita",
-]
+# Mappatura Checkbox (Nome nell'App -> Nome nel PDF)
+CHECKBOX_MAP: dict[str, str] = {
+    # 3 DICHIARA (Non obbligatori - l'app li imposta a False di default)
+    "dichiara_norma": "1",
+    "dichiara_componenti": "2",
+    "dichiara_controllo": "3",
+    
+    # 6 ALLEGATI (Obbligatori - l'app li imposta a True di default)
+    "allegato_progetto": "4",
+    "allegato_relazione": "5",
+    "allegato_schema": "6",
+    "allegato_precedenti": "checkbox_15ltlf",
+    "allegato_certificato": "checkbox_17mewb",
+    "allegato_conformita": "9",
+}
 
 
 class PDFTemplateError(Exception):
