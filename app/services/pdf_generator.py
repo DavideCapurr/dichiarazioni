@@ -1,45 +1,83 @@
 import io
 import logging
 from pathlib import Path
+
 from pypdf import PdfReader, PdfWriter
+from pypdf.generic import NameObject
+
 from app.models.schemas import ClientInfo
 
 logger = logging.getLogger(__name__)
 
+# Mappatura campi testo PDF → attributi ClientInfo.
+CLIENT_FIELD_MAP: dict[str, str] = {
+    "commissionato_da": "name",
+    "comune_installazione": "address_city",
+    "via_installazione": "address_street",
+}
+
+# Campi testo aggiuntivi passati come extra_fields.
+EXTRA_FIELD_MAP: dict[str, str] = {
+    "tipo_impianto": "tipo_impianto",
+    "descrizione_impianto": "descrizione_impianto",
+    "proprietario": "proprietario",
+    "uso_edificio": "uso_edificio",
+    "data": "data",
+    "comune_installazione": "comune_installazione",
+    "via_installazione": "via_installazione",
+}
+
+# Tutti i campi checkbox nel PDF (3 DICHIARA + 6 ALLEGATI).
+ALL_CHECKBOXES: list[str] = [
+    "dichiara_norma",
+    "dichiara_componenti",
+    "dichiara_controllo",
+    "allegato_progetto",
+    "allegato_relazione",
+    "allegato_schema",
+    "allegato_precedenti",
+    "allegato_certificato",
+    "allegato_conformita",
+]
+
+
 class PDFTemplateError(Exception):
     pass
 
-# MAPPA DEL CLIENTE (Dati da Fatture in Cloud -> Campi PDF)
-# Colleghiamo i dati anagrafici del cliente ai nomi dei campi nel tuo PDF
-CLIENT_FIELD_MAP = {
-    "commissionato da": "name",
-    "comuneDI": "address_city",
-    "in": "address_street",
-}
 
-# MAPPA EXTRA (Dati dal form web -> Campi PDF)
-# Questi sono i campi che compili a mano nella web app
-EXTRA_FIELD_MAP = {
-    "esecutrice di": "descrizione_impianto",
-    "inteso come": "tipo_intervento",
-    "diProprietaDi": "proprietario",
-    "adUso": "uso_edificio",
-    "data": "data",
-}
+def get_template_fields(template_path: Path) -> list[str]:
+    """Return the list of AcroForm field names found in the template PDF."""
+    if not template_path.exists():
+        raise PDFTemplateError(f"Template PDF non trovato: {template_path}")
+    reader = PdfReader(str(template_path))
+    fields = reader.get_fields()
+    return list(fields.keys()) if fields else []
 
-# MAPPA CHECKBOX (Allegati)
-# Associa i nomi dei campi PDF (1, 2, 3...) alle checkbox del sito
-ALLEGATI_MAP = {
-    "allegato_progetto": "1",
-    "allegato_relazione": "2",
-    "allegato_schema": "3",
-    "allegato_precedenti": "4",
-    "allegato_certificato": "5",
-    "allegato_conformita": "6",
-    # Box di sicurezza (se presenti nel form)
-    "sicurezza_materiali": "checkbox_15ltlf", 
-    "sicurezza_controllo": "checkbox_17mewb",
-}
+
+def _fill_checkboxes(writer: PdfWriter, checkbox_values: dict[str, bool]) -> None:
+    """Directly update /V and /AS on every checkbox widget annotation.
+
+    Some PDF viewers only look at /AS (Appearance State) to decide whether
+    to render the tick; setting both /V and /AS ensures it works everywhere.
+    """
+    for page in writer.pages:
+        annots = page.get("/Annots")
+        if annots is None:
+            continue
+        for ref in annots:
+            annot = ref.get_object()
+            field_name = annot.get("/T")
+            if field_name is None:
+                continue
+            name = str(field_name)
+            if name not in checkbox_values:
+                continue
+            state = NameObject("/Yes") if checkbox_values[name] else NameObject("/Off")
+            annot.update({
+                NameObject("/V"): state,
+                NameObject("/AS"): state,
+            })
+
 
 def generate_declaration(
     client: ClientInfo,
@@ -47,7 +85,7 @@ def generate_declaration(
     extra_fields: dict[str, str] | None = None,
     allegati: dict[str, bool] | None = None,
 ) -> bytes:
-    """Riempie il PDF con i soli dati variabili del cliente e dell'impianto."""
+    """Fill the PDF template with client data and return the PDF bytes."""
     if not template_path.exists():
         raise PDFTemplateError(f"Template PDF non trovato: {template_path}")
 
@@ -55,33 +93,32 @@ def generate_declaration(
     writer = PdfWriter()
     writer.append(reader)
 
-    # Dizionario che conterrà i valori da scrivere
-    values: dict[str, str] = {}
+    # ── Text fields ────────────────────────────────────────────────────────
+    text_values: dict[str, str] = {}
 
-    # 1. Inserimento dati cliente da Fatture in Cloud
     client_dict = client.model_dump()
-    for pdf_field, client_attr in CLIENT_FIELD_MAP.items():
-        val = client_dict.get(client_attr)
+    for pdf_field, attr in CLIENT_FIELD_MAP.items():
+        val = client_dict.get(attr)
         if val:
-            values[pdf_field] = str(val)
+            text_values[pdf_field] = str(val)
 
-    # 2. Inserimento dati variabili dal form (descrizione, data, ecc.)
+    # proprietario defaults to client name when not provided
+    text_values["proprietario"] = client.name
+
+    # Extra fields override (including installation address override)
     if extra_fields:
         for pdf_field, extra_key in EXTRA_FIELD_MAP.items():
-            if extra_key in extra_fields and extra_fields[extra_key]:
-                values[pdf_field] = str(extra_fields[extra_key])
+            val = extra_fields.get(extra_key)
+            if val:
+                text_values[pdf_field] = str(val)
 
-    # 3. Gestione Checkbox degli allegati
-    if allegati:
-        for chiave_interna, nome_pdf in ALLEGATI_MAP.items():
-            if allegati.get(chiave_interna):
-                values[nome_pdf] = "/Yes"
-            else:
-                values[nome_pdf] = "/Off"
-
-    # Applicazione dei valori ai campi AcroForm del PDF
     for page in writer.pages:
-        writer.update_page_form_field_values(page, values, auto_regenerate=False)
+        writer.update_page_form_field_values(page, text_values, auto_regenerate=False)
+
+    # ── Checkboxes ─────────────────────────────────────────────────────────
+    if allegati:
+        cb_values = {name: bool(allegati.get(name, False)) for name in ALL_CHECKBOXES}
+        _fill_checkboxes(writer, cb_values)
 
     buf = io.BytesIO()
     writer.write(buf)

@@ -14,10 +14,10 @@
     const declarationDate = document.getElementById('declarationDate');
     const comuneInstallazione = document.getElementById('comuneInstallazione');
     const viaInstallazione = document.getElementById('viaInstallazione');
+    const proprietarioInput = document.getElementById('proprietario');
 
     let searchTimer = null;
 
-    // Default today's date
     declarationDate.value = new Date().toISOString().split('T')[0];
 
     function showNotification(message, type) {
@@ -27,6 +27,12 @@
 
     function hideNotification() {
         notification.className = 'notification hidden';
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
     }
 
     async function searchClients(query) {
@@ -45,7 +51,7 @@
             }
             const data = await response.json();
             renderResults(data.clients || []);
-        } catch (err) {
+        } catch {
             showNotification('Errore di connessione al server', 'error');
             resultsSection.classList.add('hidden');
         }
@@ -73,23 +79,26 @@
         resultsSection.classList.remove('hidden');
     }
 
-    function escapeHtml(str) {
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-    }
-
     function openModal(client) {
         clientIdInput.value = client.id;
+
+        // Riepilogo cliente
         clientSummary.innerHTML = `
             <strong>${escapeHtml(client.name)}</strong><br>
-            P.IVA: ${escapeHtml(client.vat_number || '-')}<br>
+            P.IVA: ${escapeHtml(client.vat_number || '-')}&nbsp;&nbsp;
             CF: ${escapeHtml(client.tax_code || '-')}<br>
-            ${escapeHtml(client.address_street || '')} ${escapeHtml(client.address_postal_code || '')} ${escapeHtml(client.address_city || '')} ${escapeHtml(client.address_province ? '(' + client.address_province + ')' : '')}
+            ${escapeHtml([client.address_street, client.address_postal_code,
+                          client.address_city,
+                          client.address_province ? `(${client.address_province})` : '']
+                         .filter(Boolean).join(' '))}
         `;
-        // Pre-fill installation location with client address (user can override)
+
+        // Pre-fill installation fields from client address
         comuneInstallazione.value = client.address_city || '';
         viaInstallazione.value = client.address_street || '';
+        // proprietario = nome cliente (modificabile)
+        proprietarioInput.value = client.name || '';
+
         modal.classList.remove('hidden');
     }
 
@@ -109,17 +118,21 @@
         };
 
         // Text fields
-        const textFields = ['declaration_date', 'tipo_impianto', 'descrizione_impianto',
-                            'comune_installazione', 'via_installazione', 'proprietario',
-                            'uso_edificio'];
+        const textFields = [
+            'declaration_date', 'tipo_impianto', 'descrizione_impianto',
+            'comune_installazione', 'via_installazione', 'proprietario', 'uso_edificio',
+        ];
         for (const f of textFields) {
             const el = generateForm.querySelector(`[name="${f}"]`);
             if (el && el.value) payload[f] = el.value;
         }
 
-        // Checkboxes allegati
-        const cbNames = ['allegato_progetto', 'allegato_relazione', 'allegato_schema',
-                         'allegato_precedenti', 'allegato_certificato', 'allegato_conformita'];
+        // All 9 checkboxes
+        const cbNames = [
+            'dichiara_norma', 'dichiara_componenti', 'dichiara_controllo',
+            'allegato_progetto', 'allegato_relazione', 'allegato_schema',
+            'allegato_precedenti', 'allegato_certificato', 'allegato_conformita',
+        ];
         for (const name of cbNames) {
             const el = generateForm.querySelector(`[name="${name}"]`);
             payload.allegati[name] = el ? el.checked : false;
@@ -137,8 +150,8 @@
                 return;
             }
             const blob = await response.blob();
-            const contentDisposition = response.headers.get('Content-Disposition') || '';
-            const match = contentDisposition.match(/filename="?([^"]+)"?/);
+            const cd = response.headers.get('Content-Disposition') || '';
+            const match = cd.match(/filename="?([^"]+)"?/);
             const filename = match ? match[1] : 'dichiarazione.pdf';
 
             const url = URL.createObjectURL(blob);
@@ -152,7 +165,7 @@
 
             showNotification('Dichiarazione generata con successo', 'success');
             closeModal();
-        } catch (err) {
+        } catch {
             showNotification('Errore di connessione al server', 'error');
         } finally {
             submitBtn.disabled = false;
@@ -166,15 +179,10 @@
         searchTimer = setTimeout(() => searchClients(searchInput.value), 300);
     });
     searchInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            clearTimeout(searchTimer);
-            searchClients(searchInput.value);
-        }
+        if (e.key === 'Enter') { clearTimeout(searchTimer); searchClients(searchInput.value); }
     });
     searchBtn.addEventListener('click', () => searchClients(searchInput.value));
     modalClose.addEventListener('click', closeModal);
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) closeModal();
-    });
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
     generateForm.addEventListener('submit', generateDeclaration);
 })();

@@ -15,12 +15,9 @@
 
         <section class="search-section">
             <div class="search-box">
-                <input
-                    type="text"
-                    id="searchInput"
-                    placeholder="Cerca per ragione sociale o P.IVA..."
-                    autocomplete="off"
-                >
+                <input type="text" id="searchInput"
+                       placeholder="Cerca per ragione sociale o P.IVA..."
+                       autocomplete="off">
                 <button id="searchBtn" type="button">Cerca</button>
             </div>
         </section>
@@ -60,13 +57,14 @@
                     <div class="form-group">
                         <label for="tipoImpianto">Tipo di impianto <span class="required">*</span></label>
                         <input type="text" id="tipoImpianto" name="tipo_impianto"
-                               placeholder="Es. nuovo impianto idraulico" value="nuovo impianto idraulico" required>
+                               placeholder="Es. nuovo impianto idraulico"
+                               value="nuovo impianto idraulico" required>
                     </div>
 
                     <div class="form-group">
                         <label for="descrizioneImpianto">Descrizione impianto <small>("Inteso come")</small></label>
                         <textarea id="descrizioneImpianto" name="descrizione_impianto" rows="2"
-                                  placeholder="Es. nuovo impianto idrico sanitario, riscaldamento, raffrescamento..."></textarea>
+                                  placeholder="Es. nuovo impianto idrico sanitario, riscaldamento..."></textarea>
                     </div>
 
                     <div class="form-row">
@@ -86,7 +84,7 @@
                         <div class="form-group">
                             <label for="proprietario">Proprietario dell'immobile</label>
                             <input type="text" id="proprietario" name="proprietario"
-                                   placeholder="Nome del proprietario">
+                                   placeholder="Auto-compilato dal cliente">
                         </div>
                         <div class="form-group">
                             <label for="usoEdificio">Uso dell'edificio</label>
@@ -97,29 +95,41 @@
                         </div>
                     </div>
 
-                    <!-- Allegati opzionali: l'utente decide -->
+                    <!-- 3 voci DICHIARA: decide l'utente -->
                     <fieldset class="allegati-group allegati-optional">
-                        <legend>Documenti da allegare <small>(selezionare se presenti)</small></legend>
+                        <legend>Il dichiarante attesta di aver <small>(selezionare)</small></legend>
                         <label class="checkbox">
-                            <input type="checkbox" name="allegato_progetto">
-                            progetto ai sensi degli articoli 5 e 7
+                            <input type="checkbox" name="dichiara_norma">
+                            seguito la norma tecnica applicabile all'impiego UNI7129/2015
                         </label>
                         <label class="checkbox">
-                            <input type="checkbox" name="allegato_relazione">
-                            relazione con tipologie dei materiali utilizzati
+                            <input type="checkbox" name="dichiara_componenti">
+                            installato componenti e materiali adatti al luogo di installazione (art. 5 e 6)
                         </label>
                         <label class="checkbox">
-                            <input type="checkbox" name="allegato_schema">
-                            schema di impianto realizzato
+                            <input type="checkbox" name="dichiara_controllo">
+                            controllato l'impianto ai fini della sicurezza e della funzionalit&agrave; con esito positivo
                         </label>
                     </fieldset>
 
-                    <!-- Allegati obbligatori: pre-checked -->
+                    <!-- 6 Allegati obbligatori: pre-checked -->
                     <fieldset class="allegati-group allegati-required">
                         <legend>Allegati obbligatori</legend>
                         <label class="checkbox">
+                            <input type="checkbox" name="allegato_progetto" checked>
+                            progetto ai sensi degli articoli 5 e 7
+                        </label>
+                        <label class="checkbox">
+                            <input type="checkbox" name="allegato_relazione" checked>
+                            relazione con tipologie dei materiali utilizzati
+                        </label>
+                        <label class="checkbox">
+                            <input type="checkbox" name="allegato_schema" checked>
+                            schema di impianto realizzato
+                        </label>
+                        <label class="checkbox">
                             <input type="checkbox" name="allegato_precedenti" checked>
-                            riferimento a dichiarazione di conformit&agrave; precedenti o parziali, gi&agrave; esistenti
+                            riferimento a dichiarazione di conformit&agrave; precedenti o parziali
                         </label>
                         <label class="checkbox">
                             <input type="checkbox" name="allegato_certificato" checked>

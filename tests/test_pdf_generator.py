@@ -11,83 +11,86 @@ from app.services.pdf_generator import (
 )
 
 
-def test_get_template_fields_lists_acroform_names(sample_template_pdf: Path):
+def test_get_template_fields(sample_template_pdf: Path):
     fields = get_template_fields(sample_template_pdf)
     assert "commissionato_da" in fields
-    assert "comune_installazione" in fields
-    assert "via_installazione" in fields
+    assert "dichiara_norma" in fields
+    assert "allegato_certificato" in fields
     assert "data" in fields
 
 
-def test_get_template_fields_missing_file(tmp_path: Path):
-    missing = tmp_path / "nope.pdf"
+def test_missing_template(tmp_path: Path):
     with pytest.raises(PDFTemplateError):
-        get_template_fields(missing)
+        get_template_fields(tmp_path / "nope.pdf")
 
 
-def test_generate_declaration_fills_client_and_extra(sample_template_pdf: Path, sample_client):
-    extra = {
-        "data": "15/04/2026",
-        "tipo_impianto": "nuovo impianto idraulico",
-        "descrizione_impianto": "impianto idrico sanitario",
-        "proprietario": "Mario Bianchi",
-        "uso_edificio": "civile",
-    }
-    pdf_bytes = generate_declaration(
-        client=sample_client,
-        template_path=sample_template_pdf,
-        extra_fields=extra,
-    )
-    assert isinstance(pdf_bytes, bytes)
-    assert len(pdf_bytes) > 0
-
+def test_text_fields_filled(sample_template_pdf: Path, sample_client):
+    extra = {"data": "15/04/2026", "tipo_impianto": "nuovo impianto idraulico",
+              "uso_edificio": "civile"}
+    pdf_bytes = generate_declaration(sample_client, sample_template_pdf, extra)
     reader = PdfReader(io.BytesIO(pdf_bytes))
     fields = reader.get_fields()
-    # Client-mapped fields
     assert fields["commissionato_da"]["/V"] == "Mario Rossi SRL"
-    assert fields["comune_installazione"]["/V"] == "Roma"  # from client
-    assert fields["via_installazione"]["/V"] == "Via Roma 1"  # from client
-    # Extra fields
+    assert fields["comune_installazione"]["/V"] == "Roma"
+    assert fields["via_installazione"]["/V"] == "Via Roma 1"
+    assert fields["proprietario"]["/V"] == "Mario Rossi SRL"  # defaults to client name
     assert fields["data"]["/V"] == "15/04/2026"
-    assert fields["tipo_impianto"]["/V"] == "nuovo impianto idraulico"
-    assert fields["proprietario"]["/V"] == "Mario Bianchi"
-    assert fields["uso_edificio"]["/V"] == "civile"
 
 
-def test_extra_fields_override_client_address(sample_template_pdf: Path, sample_client):
-    """When the user fills in a different installation address, it overrides client data."""
-    extra = {
-        "comune_installazione": "Voghera",
-        "via_installazione": "via Leopardi 11",
-    }
+def test_proprietario_defaults_to_client_name(sample_template_pdf: Path, sample_client):
+    pdf_bytes = generate_declaration(sample_client, sample_template_pdf)
+    fields = PdfReader(io.BytesIO(pdf_bytes)).get_fields()
+    assert fields["proprietario"]["/V"] == "Mario Rossi SRL"
+
+
+def test_proprietario_override(sample_template_pdf: Path, sample_client):
     pdf_bytes = generate_declaration(
-        client=sample_client,
-        template_path=sample_template_pdf,
-        extra_fields=extra,
+        sample_client, sample_template_pdf, extra_fields={"proprietario": "Sig. Bianchi"}
     )
-    reader = PdfReader(io.BytesIO(pdf_bytes))
-    fields = reader.get_fields()
+    fields = PdfReader(io.BytesIO(pdf_bytes)).get_fields()
+    assert fields["proprietario"]["/V"] == "Sig. Bianchi"
+
+
+def test_installation_address_override(sample_template_pdf: Path, sample_client):
+    extra = {"comune_installazione": "Voghera", "via_installazione": "via Leopardi 11"}
+    pdf_bytes = generate_declaration(sample_client, sample_template_pdf, extra)
+    fields = PdfReader(io.BytesIO(pdf_bytes)).get_fields()
     assert fields["comune_installazione"]["/V"] == "Voghera"
     assert fields["via_installazione"]["/V"] == "via Leopardi 11"
 
 
-def test_allegati_checkboxes(sample_template_pdf: Path, sample_client):
-    allegati = {
-        "allegato_certificato": True,
-        "allegato_progetto": False,
-    }
-    pdf_bytes = generate_declaration(
-        client=sample_client,
-        template_path=sample_template_pdf,
-        allegati=allegati,
-    )
+def _get_checkbox_as(pdf_bytes: bytes, field_name: str) -> str:
+    """Return the /AS value of a checkbox annotation."""
+    from pypdf import PdfReader
     reader = PdfReader(io.BytesIO(pdf_bytes))
-    fields = reader.get_fields()
-    # Checked box should have value /Yes
-    assert fields["allegato_certificato"]["/V"] in ("/Yes", "Yes")
+    page = reader.pages[0]
+    for ref in page.get("/Annots", []):
+        annot = ref.get_object()
+        if str(annot.get("/T", "")) == field_name:
+            return str(annot.get("/AS", ""))
+    return ""
 
 
-def test_generate_declaration_missing_template(tmp_path: Path, sample_client):
-    missing = tmp_path / "missing.pdf"
+def test_checkboxes_on(sample_template_pdf: Path, sample_client):
+    allegati = {n: True for n in [
+        "dichiara_norma", "dichiara_componenti", "dichiara_controllo",
+        "allegato_progetto", "allegato_relazione", "allegato_schema",
+        "allegato_precedenti", "allegato_certificato", "allegato_conformita",
+    ]}
+    pdf_bytes = generate_declaration(sample_client, sample_template_pdf, allegati=allegati)
+    for name in allegati:
+        assert _get_checkbox_as(pdf_bytes, name) == "/Yes", f"{name} not /Yes"
+
+
+def test_checkboxes_off(sample_template_pdf: Path, sample_client):
+    allegati = {n: False for n in [
+        "dichiara_norma", "allegato_progetto", "allegato_certificato"
+    ]}
+    pdf_bytes = generate_declaration(sample_client, sample_template_pdf, allegati=allegati)
+    for name in allegati:
+        assert _get_checkbox_as(pdf_bytes, name) == "/Off", f"{name} not /Off"
+
+
+def test_missing_template_generate(tmp_path: Path, sample_client):
     with pytest.raises(PDFTemplateError):
-        generate_declaration(client=sample_client, template_path=missing)
+        generate_declaration(sample_client, tmp_path / "missing.pdf")
