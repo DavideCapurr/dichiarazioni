@@ -26,12 +26,12 @@ class AllegatiFlags(BaseModel):
     dichiara_componenti: bool = False
     dichiara_controllo: bool = False
     # 6 Allegati obbligatori — sempre pre-checked
-    allegato_progetto: bool = True
-    allegato_relazione: bool = True
-    allegato_schema: bool = True
-    allegato_precedenti: bool = True
-    allegato_certificato: bool = True
-    allegato_conformita: bool = True
+    allegato_progetto: bool = False
+    allegato_relazione: bool = False
+    allegato_schema: bool = False
+    allegato_precedenti: bool = False
+    allegato_certificato: bool = False
+    allegato_conformita: bool = False
 
 
 class DeclarationRequest(BaseModel):
