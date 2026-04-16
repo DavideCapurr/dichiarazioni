@@ -21,13 +21,17 @@ class ClientSearchResponse(BaseModel):
 
 
 class AllegatiFlags(BaseModel):
-    """Flag per le checkbox degli allegati obbligatori."""
+    """Flag per le checkbox degli allegati.
+    I primi 3 sono decisi dall'utente; gli ultimi 3 sono obbligatori (default True).
+    """
+    # Decidere dall'utente
     allegato_progetto: bool = False
     allegato_relazione: bool = False
     allegato_schema: bool = False
-    allegato_precedenti: bool = False
-    allegato_certificato: bool = False
-    allegato_conformita: bool = False
+    # Obbligatori — pre-checked di default
+    allegato_precedenti: bool = True
+    allegato_certificato: bool = True
+    allegato_conformita: bool = True
 
 
 class DeclarationRequest(BaseModel):

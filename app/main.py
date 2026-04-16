@@ -33,10 +33,7 @@ app.include_router(declarations.router)
 
 @app.get("/")
 def home(request: Request):
-    return templates.TemplateResponse(
-        request=request, 
-        name="index.html"
-    )
+    return templates.TemplateResponse(request=request, name="index.html")
 
 
 # --- Exception handlers ---

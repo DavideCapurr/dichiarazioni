@@ -228,19 +228,31 @@ tbody tr:hover {
 }
 
 .form-group input,
-.form-group textarea {
+.form-group textarea,
+.form-group select {
     width: 100%;
     padding: 0.6rem 0.75rem;
     border: 1px solid #cbd5e0;
     border-radius: 6px;
     font-size: 0.9rem;
     outline: none;
+    background: #fff;
 }
 
 .form-group input:focus,
-.form-group textarea:focus {
+.form-group textarea:focus,
+.form-group select:focus {
     border-color: #3182ce;
     box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.15);
+}
+
+.form-group .required {
+    color: #e53e3e;
+}
+
+.form-group label small {
+    font-weight: normal;
+    color: #718096;
 }
 
 .btn-generate {
@@ -275,20 +287,40 @@ tbody tr:hover {
     flex: 1;
 }
 
-/* Allegati group */
+/* Allegati groups */
 .allegati-group {
-    margin: 1rem 0 1.25rem;
+    margin: 0.75rem 0;
     padding: 0.75rem 1rem;
-    border: 1px solid #e2e8f0;
     border-radius: 6px;
+}
+
+.allegati-optional {
+    border: 1px solid #e2e8f0;
     background: #f7fafc;
+}
+
+.allegati-required {
+    border: 1px solid #c3dafe;
+    background: #ebf4ff;
 }
 
 .allegati-group legend {
     font-weight: 600;
     font-size: 0.9rem;
-    color: #4a5568;
     padding: 0 0.5rem;
+}
+
+.allegati-optional legend {
+    color: #4a5568;
+}
+
+.allegati-required legend {
+    color: #2b6cb0;
+}
+
+.allegati-group legend small {
+    font-weight: normal;
+    color: #718096;
 }
 
 .allegati-group .checkbox {

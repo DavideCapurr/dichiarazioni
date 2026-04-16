@@ -214,23 +214,30 @@ def build_template(output: Path) -> None:
 
     y -= 6
 
-    # Allegati obbligatori con checkbox
+    # Allegati — sezione 1: opzionali (decide l'utente)
     c.setFont("Helvetica-Bold", 10)
     c.drawString(MARGIN_LEFT, y, "Allegati obbligatori:")
     y -= 14
 
-    allegati = [
+    allegati_opzionali = [
         ("allegato_progetto", "progetto ai sensi degli articoli 5 e 7"),
         ("allegato_relazione", "relazione con tipologie dei materiali utilizzati"),
         ("allegato_schema", "schema di impianto realizzato"),
+    ]
+    c.setFont("Helvetica", 10)
+    for name, label in allegati_opzionali:
+        draw_checkbox(c, name, MARGIN_LEFT + 2, y - 2, size=10, checked=False, tooltip=label)
+        c.drawString(MARGIN_LEFT + 18, y, label)
+        y -= 14
+
+    # Allegati — sezione 2: obbligatori (pre-checked)
+    allegati_obbligatori = [
         ("allegato_precedenti", "riferimento a dichiarazione di conformità precedenti o parziali, già esistenti"),
         ("allegato_certificato", "copia del certificato di riconoscimento dei requisiti tecnico-professionali"),
         ("allegato_conformita", "attestazione di conformità per impianto realizzato con materiali o sistemi non normalizzati"),
     ]
-    c.setFont("Helvetica", 10)
-    for name, label in allegati:
-        draw_checkbox(c, name, MARGIN_LEFT + 2, y - 2, size=10, checked=False,
-                      tooltip=label)
+    for name, label in allegati_obbligatori:
+        draw_checkbox(c, name, MARGIN_LEFT + 2, y - 2, size=10, checked=True, tooltip=label)
         c.drawString(MARGIN_LEFT + 18, y, label)
         y -= 14
 
