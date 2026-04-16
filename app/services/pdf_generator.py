@@ -119,8 +119,14 @@ def generate_declaration(
         writer.update_page_form_field_values(page, text_values, auto_regenerate=False)
 
     # ── Checkboxes ─────────────────────────────────────────────────────────
+# ── Checkboxes ─────────────────────────────────────────────────────────
     if allegati:
-        cb_values = {name: bool(allegati.get(name, False)) for name in ALL_CHECKBOXES}
+        cb_values = {}
+        for app_name, pdf_name in CHECKBOX_MAP.items():
+            # Prendiamo il valore (True/False) inviato dall'interfaccia 
+            # e lo assegniamo al nome reale della casella nel PDF
+            cb_values[pdf_name] = bool(allegati.get(app_name, False))
+            
         _fill_checkboxes(writer, cb_values)
 
     buf = io.BytesIO()
