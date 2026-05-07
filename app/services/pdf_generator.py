@@ -1,4 +1,6 @@
+import base64
 import io
+import logging
 import re
 import shutil
 import subprocess
@@ -507,8 +509,14 @@ def _convert_docx_to_pdf(docx_path: Path, output_dir: Path) -> bytes:
             return pdf_path.read_bytes()
         errors.append(f"Conversione non riuscita: {pdf_path} non trovato")
 
+    # Pure-Python fallback — always available, no external tools needed.
+    try:
+        return _convert_with_python(docx_path)
+    except Exception as exc:
+        errors.append(f"Convertitore Python: {exc}")
+
     raise PDFTemplateError(
-        "Impossibile esportare il DOCX in PDF. Installa LibreOffice oppure usa Pages.app. "
+        "Impossibile esportare il DOCX in PDF. "
         + " | ".join(errors)
     )
 
@@ -541,7 +549,9 @@ def _convert_with_libreoffice(docx_path: Path, output_dir: Path) -> Path:
 
 def _convert_with_pages(docx_path: Path, output_dir: Path) -> Path:
     pages_app = Path("/Applications/Pages.app")
-    if not pages_app.exists() or not shutil.which("osascript"):
+    osascript = shutil.which("osascript") or _existing_path("/usr/bin/osascript")
+    
+    if not pages_app.exists() or not osascript:
         raise FileNotFoundError("Pages.app/osascript non trovato")
 
     pdf_path = output_dir / (docx_path.stem + ".pdf")
@@ -553,7 +563,7 @@ tell application "Pages"
 end tell
 """
     subprocess.run(
-        ["osascript", "-e", script],
+        [osascript, "-e", script],
         check=True,
         capture_output=True,
         timeout=60,
@@ -564,3 +574,239 @@ end tell
 def _existing_path(path: str) -> str | None:
     candidate = Path(path)
     return str(candidate) if candidate.exists() else None
+
+
+# ---------------------------------------------------------------------------
+# Pure-Python DOCX → PDF converter (xhtml2pdf, no system tools needed)
+# ---------------------------------------------------------------------------
+
+_logger = logging.getLogger(__name__)
+
+
+def _convert_with_python(docx_path: Path) -> bytes:
+    """Convert a DOCX to PDF using pure Python (python-docx → HTML → xhtml2pdf)."""
+    from xhtml2pdf import pisa  # lazy import to keep startup fast
+
+    document = Document(str(docx_path))
+    html = _docx_to_html(document, docx_path.parent)
+    output = io.BytesIO()
+    status = pisa.CreatePDF(io.StringIO(html), dest=output)
+
+    if status.err:
+        raise PDFTemplateError(
+            f"xhtml2pdf ha riportato {status.err} errori durante la conversione"
+        )
+
+    pdf_bytes = output.getvalue()
+    if not pdf_bytes:
+        raise PDFTemplateError("xhtml2pdf ha prodotto un PDF vuoto")
+
+    _logger.info("PDF generato con convertitore Python puro (xhtml2pdf)")
+    return pdf_bytes
+
+
+def _docx_to_html(document: DocxDocument, asset_dir: Path) -> str:
+    """Build an HTML representation of the DOCX content.
+
+    This is *not* a generic DOCX→HTML converter — it is tailored for the
+    Dichiarazione di Conformità layout and handles:
+      • paragraphs with bold/italic/underline runs
+      • numbered-list tick markers (☑ / ☐)
+      • tables
+      • inline + floating images (embedded as base64 data URIs)
+      • footer text
+    """
+    body_parts: list[str] = []
+
+    # --- main body paragraphs ---
+    for paragraph in document.paragraphs:
+        body_parts.append(_paragraph_to_html(paragraph))
+
+    # --- tables ---
+    for table in document.tables:
+        body_parts.append(_table_to_html(table))
+
+    # --- footer ---
+    for section in document.sections:
+        for paragraph in section.footer.paragraphs:
+            text = paragraph.text.strip()
+            if text:
+                body_parts.append(
+                    f'<p class="footer">{_runs_to_html(paragraph.runs)}</p>'
+                )
+
+    # --- inline images (blips) ---
+    images_css = _extract_image_styles(document)
+
+    return _wrap_html("\n".join(body_parts), extra_css=images_css)
+
+
+def _wrap_html(body: str, extra_css: str = "") -> str:
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page {{
+    size: A4;
+    margin: 1.5cm 2cm;
+  }}
+  body {{
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 10pt;
+    line-height: 1.35;
+    color: #000;
+  }}
+  p {{
+    margin: 2pt 0;
+  }}
+  p.empty {{
+    margin: 0;
+    height: 6pt;
+  }}
+  .checkbox {{
+    font-size: 12pt;
+    margin-right: 4pt;
+  }}
+  table {{
+    width: 100%;
+    border-collapse: collapse;
+    margin: 6pt 0;
+  }}
+  td, th {{
+    border: 1px solid #999;
+    padding: 4pt 6pt;
+    font-size: 10pt;
+    vertical-align: top;
+  }}
+  .footer {{
+    margin-top: 18pt;
+    font-size: 9pt;
+  }}
+  img.docx-img {{
+    max-width: 100%;
+    height: auto;
+  }}
+  {extra_css}
+</style>
+</head>
+<body>
+{body}
+</body>
+</html>"""
+
+
+def _paragraph_to_html(paragraph) -> str:
+    """Convert a single DOCX paragraph to an HTML string."""
+    text = paragraph.text.strip()
+    if not text:
+        return '<p class="empty">&nbsp;</p>'
+
+    # Detect tick-marker list items
+    tick = _get_tick_prefix(paragraph)
+    runs_html = _runs_to_html(paragraph.runs)
+
+    if tick is not None:
+        return f"<p>{tick}{runs_html}</p>"
+
+    # Detect heading style
+    style_name = (paragraph.style.name or "").lower()
+    if "heading" in style_name or "titolo" in style_name:
+        return f"<p><b>{runs_html}</b></p>"
+
+    return f"<p>{runs_html}</p>"
+
+
+def _runs_to_html(runs) -> str:
+    """Convert a list of DOCX runs to inline HTML."""
+    parts: list[str] = []
+    for run in runs:
+        text = run.text
+        if not text:
+            # Check for embedded images in this run
+            img_html = _run_images_to_html(run)
+            if img_html:
+                parts.append(img_html)
+            continue
+
+        # Escape basic HTML entities
+        escaped = (
+            text.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+        )
+
+        if run.bold:
+            escaped = f"<b>{escaped}</b>"
+        if run.italic:
+            escaped = f"<i>{escaped}</i>"
+        if run.underline:
+            escaped = f"<u>{escaped}</u>"
+
+        parts.append(escaped)
+
+        # Also check for images alongside text
+        img_html = _run_images_to_html(run)
+        if img_html:
+            parts.append(img_html)
+
+    return "".join(parts)
+
+
+def _get_tick_prefix(paragraph) -> str | None:
+    """Return a checkbox HTML prefix if the paragraph uses a numbering marker."""
+    p_pr = paragraph._p.pPr
+    if p_pr is None:
+        return None
+    num_pr = p_pr.find(qn("w:numPr"))
+    if num_pr is None:
+        return None
+    num_id_el = num_pr.find(qn("w:numId"))
+    if num_id_el is None:
+        return None
+    num_id = num_id_el.get(qn("w:val"))
+    if num_id == CHECKED_NUM_ID:
+        return '<span class="checkbox">☑</span> '
+    return '<span class="checkbox">☐</span> '
+
+
+def _run_images_to_html(run) -> str:
+    """Extract any inline images from a run and return them as <img> tags."""
+    parts: list[str] = []
+    drawings = run._r.findall(qn("w:drawing"))
+    for drawing in drawings:
+        for blip in drawing.iter(qn("a:blip")):
+            r_embed = blip.get(qn("r:embed"))
+            if r_embed:
+                try:
+                    rel = run.part.rels[r_embed]
+                    image_blob = rel.target_part.blob
+                    content_type = rel.target_part.content_type or "image/png"
+                    b64 = base64.b64encode(image_blob).decode("ascii")
+                    parts.append(
+                        f'<img class="docx-img" '
+                        f'src="data:{content_type};base64,{b64}" />'
+                    )
+                except (KeyError, AttributeError):
+                    pass  # image not resolvable, skip gracefully
+    return "".join(parts)
+
+
+def _table_to_html(table) -> str:
+    """Convert a DOCX table to an HTML <table>."""
+    rows: list[str] = []
+    for row in table.rows:
+        cells = []
+        for cell in row.cells:
+            cell_html = " ".join(
+                _runs_to_html(p.runs) or p.text for p in cell.paragraphs
+            )
+            cells.append(f"<td>{cell_html}</td>")
+        rows.append(f"<tr>{''.join(cells)}</tr>")
+    return f"<table>{''.join(rows)}</table>"
+
+
+def _extract_image_styles(document: DocxDocument) -> str:
+    """Return extra CSS for signature images (if any)."""
+    # No extra CSS needed — images are inlined as base64 data URIs.
+    return ""
