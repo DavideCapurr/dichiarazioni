@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Utility script to inspect AcroForm field names in a PDF template.
+Utility script to inspect legacy AcroForm field names in a PDF.
 
 Usage:
     python scripts/inspect_pdf_fields.py <path_to_pdf>
 
-This helps you discover the exact names of the fillable fields in your
-PDF template so you can update FIELD_MAP in app/services/pdf_generator.py.
+The application now renders final PDFs as physical content, so generated
+declarations should normally report no AcroForm fields.
 """
 import sys
 from pathlib import Path
@@ -29,7 +29,7 @@ def main():
 
     if not fields:
         print("Nessun campo AcroForm trovato nel PDF.")
-        print("Assicurati che il template abbia campi compilabili.")
+        print("Questo e il risultato atteso per i PDF fisici generati dall'app.")
         sys.exit(0)
 
     print(f"Campi AcroForm trovati in {pdf_path.name}:")
@@ -41,7 +41,7 @@ def main():
     print("-" * 60)
     print(f"Totale campi: {len(fields)}")
     print()
-    print("Copia questi nomi in FIELD_MAP in app/services/pdf_generator.py")
+    print("Nota: questi campi sono legacy; il generatore principale non li compila piu.")
 
 
 if __name__ == "__main__":

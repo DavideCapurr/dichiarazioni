@@ -23,6 +23,8 @@ env/
 
 # Output
 output/
+docx_templates/dichiarazione_compilata_sample.docx
+pdf_templates/dichiarazione_conformita_sample.pdf
 
 # OS
 .DS_Store

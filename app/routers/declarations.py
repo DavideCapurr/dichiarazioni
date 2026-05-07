@@ -33,7 +33,7 @@ def generate(request: DeclarationRequest):
 
     pdf_bytes = generate_declaration(
         client=client,
-        template_path=settings.pdf_template_abs_path,
+        template_path=settings.docx_template_abs_path,
         extra_fields=extra_fields,
         allegati=allegati_dict,
     )

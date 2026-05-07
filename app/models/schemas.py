@@ -21,16 +21,16 @@ class ClientSearchResponse(BaseModel):
 
 
 class AllegatiFlags(BaseModel):
-    # 3 voci DICHIARA — decide l'utente (default unchecked)
+    # 3 voci DICHIARA — sempre selezionate
     dichiara_norma: bool = True
     dichiara_componenti: bool = True
     dichiara_controllo: bool = True
-    # 6 Allegati obbligatori — sempre pre-checked
+    # 6 Allegati obbligatori — selezionati dall'utente
     allegato_progetto: bool = False
     allegato_relazione: bool = False
     allegato_schema: bool = False
     allegato_precedenti: bool = False
-    allegato_certificato: bool = True
+    allegato_certificato: bool = False
     allegato_conformita: bool = False
 
 

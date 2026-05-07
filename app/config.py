@@ -11,15 +11,21 @@ class Settings(BaseSettings):
 
     fic_access_token: str
     fic_company_id: int
-    pdf_template_path: str = "pdf_templates/dichiarazione_conformita.pdf"
+    docx_template_path: str = "docx_templates/dichiarazione.docx"
+    pdf_template_path: str | None = None
 
     @property
-    def pdf_template_abs_path(self) -> Path:
-        """Resolve the template path relative to the project root."""
-        path = Path(self.pdf_template_path)
+    def docx_template_abs_path(self) -> Path:
+        """Resolve the Word template path relative to the project root."""
+        path = Path(self.docx_template_path)
         if path.is_absolute():
             return path
         return Path(__file__).resolve().parent.parent / path
+
+    @property
+    def pdf_template_abs_path(self) -> Path:
+        """Backward-compatible alias used by older tests/configuration."""
+        return self.docx_template_abs_path
 
 
 settings = Settings()

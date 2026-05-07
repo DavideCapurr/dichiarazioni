@@ -1,17 +1,18 @@
 # Dichiarazioni di Conformità
 
-Web app per automatizzare la creazione delle **Dichiarazioni di Conformità dell'Impianto alla Regola d'Arte** (D.M. 22.1.2008 n.37) per **ITB Impianti Idraulici** (Davide Beccalossi), con integrazione **Fatture in Cloud** e compilazione automatica di un template PDF con campi AcroForm.
+Web app per automatizzare la creazione delle **Dichiarazioni di Conformità dell'Impianto alla Regola d'Arte** (D.M. 22.1.2008 n.37) per **ITB Impianti Idraulici** (Davide Beccalossi), con integrazione **Fatture in Cloud**, compilazione di un template Word reale e esportazione PDF lato server.
 
 ## Funzionalità
 
 - Ricerca clienti su Fatture in Cloud tramite ragione sociale
 - Recupero automatico di P.IVA, codice fiscale, indirizzo, ecc.
-- Compilazione automatica del template PDF con:
+- Compilazione del template DOCX con:
   - Dati cliente da Fatture in Cloud
   - Dati specifici della dichiarazione (tipo impianto, descrizione, proprietario, uso edificio)
-  - Checkbox per gli allegati obbligatori
+  - Tick degli allegati e delle dichiarazioni come marker Word
+  - Data e sezione firma
 - Indirizzo di installazione precompilato dal cliente (modificabile)
-- Download immediato del PDF compilato
+- Esportazione PDF sempre sul backend, quindi il download funziona da qualsiasi dispositivo client
 
 ## Installazione
 
@@ -32,12 +33,28 @@ Web app per automatizzare la creazione delle **Dichiarazioni di Conformità dell
    ```
    FIC_ACCESS_TOKEN=il_tuo_token_privato
    FIC_COMPANY_ID=12345
-   PDF_TEMPLATE_PATH=pdf_templates/dichiarazione_conformita.pdf
+   DOCX_TEMPLATE_PATH=docx_templates/dichiarazione.docx
    ```
 
-3. Il template PDF `pdf_templates/dichiarazione_conformita.pdf` è già incluso nel repo (generato con lo script `scripts/build_template.py`). Contiene:
-   - **Dati fissi** di ITB Impianti Idraulici (P.IVA, indirizzo, CCIAA, albo artigiani)
-   - **Campi AcroForm compilabili** per le parti variabili
+3. Il DOCX `docx_templates/dichiarazione.docx` è la fonte ufficiale del layout. Il backend lo modifica come documento Word e poi lo esporta in PDF.
+
+4. Installa un converter DOCX -> PDF sul backend. In produzione è consigliato LibreOffice headless:
+
+   ```bash
+   # macOS
+   brew install --cask libreoffice
+
+   # Debian/Ubuntu server
+   sudo apt-get update && sudo apt-get install -y libreoffice-writer
+   ```
+
+   Su macOS locale, se LibreOffice non è disponibile, l'app può usare Pages.app come fallback. I dispositivi degli utenti non devono avere nulla installato: la conversione avviene sul server.
+
+   Verifica il converter:
+
+   ```bash
+   poetry run python scripts/check_pdf_converter.py
+   ```
 
 ## Avvio
 
@@ -55,11 +72,11 @@ API docs: `http://localhost:8000/docs`
 poetry run pytest tests/ -v
 ```
 
-## Campi del template PDF
+## Dati inseriti nel DOCX
 
-Il template ha 14 campi AcroForm:
+Il generatore usa questi dati per modificare il template Word prima dell'esportazione PDF:
 
-| Campo                | Tipo     | Origine                                  |
+| Dato                 | Tipo     | Origine                                  |
 |----------------------|----------|------------------------------------------|
 | `commissionato_da`   | testo    | `client.name` (Fatture in Cloud)         |
 | `comune_installazione` | testo  | `client.address_city` (override in UI)   |
@@ -69,25 +86,16 @@ Il template ha 14 campi AcroForm:
 | `proprietario`       | testo    | Input UI                                 |
 | `uso_edificio`       | testo    | Input UI (es. "civile")                  |
 | `data`               | testo    | Data dichiarazione (default: oggi)       |
-| `allegato_progetto`  | checkbox | Checkbox UI                              |
-| `allegato_relazione` | checkbox | Checkbox UI                              |
-| `allegato_schema`    | checkbox | Checkbox UI                              |
-| `allegato_precedenti`| checkbox | Checkbox UI                              |
-| `allegato_certificato` | checkbox | Checkbox UI (default: spuntato)        |
-| `allegato_conformita`| checkbox | Checkbox UI                              |
+| allegati             | tick     | Marker Word spuntati/non spuntati        |
 
-## Modificare il template
+## Modificare il layout
 
-Se devi cambiare il layout o i dati fissi, modifica `scripts/build_template.py` e rigenera:
+Se devi cambiare layout, font, spaziature o dati fissi, modifica `docx_templates/dichiarazione.docx`.
+
+Per generare un DOCX compilato e il relativo PDF di esempio:
 
 ```bash
 poetry run python scripts/build_template.py
-```
-
-Per ispezionare i campi AcroForm di un PDF:
-
-```bash
-poetry run python scripts/inspect_pdf_fields.py pdf_templates/dichiarazione_conformita.pdf
 ```
 
 ## Struttura del progetto
@@ -100,15 +108,17 @@ dichiarazioni/
 │   ├── routers/             # Endpoint API
 │   ├── services/
 │   │   ├── fattureincloud.py   # Wrapper SDK FIC
-│   │   └── pdf_generator.py    # Riempimento AcroForm
+│   │   └── pdf_generator.py    # Compilazione DOCX + export PDF
 │   ├── models/schemas.py    # Schemi Pydantic
 │   ├── templates/           # HTML (Jinja2)
 │   └── static/              # CSS + JS
+├── docx_templates/
+│   └── dichiarazione.docx            # Template Word ufficiale
 ├── pdf_templates/
-│   ├── dichiarazione_conformita.pdf  # Template con AcroForm (generato)
-│   └── dichiarazione.pdf              # PDF di esempio/riferimento
+│   └── dichiarazione.pdf             # Template PDF legacy
 ├── scripts/
-│   ├── build_template.py              # Rigenera il template
-│   └── inspect_pdf_fields.py          # Ispeziona i campi
+│   ├── build_template.py              # Genera DOCX/PDF di esempio
+│   ├── check_pdf_converter.py         # Verifica export PDF lato server
+│   └── inspect_pdf_fields.py          # Utility legacy AcroForm
 └── tests/
 ```
