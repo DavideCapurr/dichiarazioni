@@ -40,6 +40,24 @@
             </table>
         </section>
 
+        <div id="progressModal" class="modal hidden">
+            <div class="modal-content progress-modal">
+                <h2>Generazione in corso&hellip;</h2>
+                <p class="progress-intro">
+                    La creazione richiede qualche secondo perch&eacute; il server compila il template Word
+                    con i dati del cliente, applica firma e spunte, e poi converte il documento in PDF
+                    tramite LibreOffice (l'unico modo per preservare il layout originale).
+                </p>
+                <ol class="progress-steps">
+                    <li id="step-fetch"><span class="step-icon"></span> Recupero dati cliente da Fatture in Cloud</li>
+                    <li id="step-fill"><span class="step-icon"></span> Compilazione template DOCX (placeholder, spunte, firma)</li>
+                    <li id="step-convert"><span class="step-icon"></span> Conversione in PDF con LibreOffice</li>
+                    <li id="step-download"><span class="step-icon"></span> Download del documento</li>
+                </ol>
+                <div class="progress-bar"><div class="progress-bar-fill" id="progressBarFill"></div></div>
+            </div>
+        </div>
+
         <div id="generateModal" class="modal hidden">
             <div class="modal-content">
                 <button class="modal-close" id="modalClose">&times;</button>

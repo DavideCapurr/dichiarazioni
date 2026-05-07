@@ -106,11 +106,46 @@
         modal.classList.add('hidden');
     }
 
+    const progressModal = document.getElementById('progressModal');
+    const progressBarFill = document.getElementById('progressBarFill');
+    const progressStepIds = ['step-fetch', 'step-fill', 'step-convert', 'step-download'];
+
+    function setProgressStep(index) {
+        progressStepIds.forEach((id, i) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.classList.remove('active', 'done');
+            if (i < index) el.classList.add('done');
+            else if (i === index) el.classList.add('active');
+        });
+        const pct = Math.min(100, Math.round((index / (progressStepIds.length - 1)) * 100));
+        progressBarFill.style.width = `${pct}%`;
+    }
+
+    function showProgress() {
+        setProgressStep(0);
+        progressModal.classList.remove('hidden');
+    }
+
+    function hideProgress() {
+        progressModal.classList.add('hidden');
+    }
+
     async function generateDeclaration(event) {
         event.preventDefault();
         const submitBtn = generateForm.querySelector('button[type="submit"]');
         submitBtn.disabled = true;
         submitBtn.textContent = 'Generazione in corso...';
+
+        closeModal();
+        showProgress();
+        setProgressStep(0);
+        // Step animation: simulate progress through phases while server works.
+        // The backend is a single request, so we advance optimistically based on typical timings.
+        const stepTimers = [
+            setTimeout(() => setProgressStep(1), 400),
+            setTimeout(() => setProgressStep(2), 1500),
+        ];
 
         const payload = {
             client_id: parseInt(clientIdInput.value, 10),
@@ -163,11 +198,14 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
 
+            setProgressStep(3);
+            await new Promise(r => setTimeout(r, 400));
             showNotification('Dichiarazione generata con successo', 'success');
-            closeModal();
         } catch {
             showNotification('Errore di connessione al server', 'error');
         } finally {
+            stepTimers.forEach(clearTimeout);
+            hideProgress();
             submitBtn.disabled = false;
             submitBtn.textContent = 'Genera PDF';
         }
