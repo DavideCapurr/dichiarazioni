@@ -227,14 +227,14 @@ def _insert_signature_images(document: DocxDocument, template_path: Path) -> Non
                 signature_path,
                 width=Inches(1.25),
                 x_offset=Inches(2.40),
-                y_offset=Inches(-0.40),
+                y_offset=Inches(0.30),
             )
             _add_floating_picture(
                 paragraph,
                 signature_path,
                 width=Inches(1.25),
                 x_offset=Inches(4.40),
-                y_offset=Inches(-0.40),
+                y_offset=Inches(0.30),
             )
             return
 
